@@ -14,7 +14,10 @@ const path = require('path');
 // .env.local 이 있으면 읽는다 (이미 설정된 환경변수가 우선)
 try { process.loadEnvFile(path.join(__dirname, '.env.local')); } catch {}
 
-const env = n => (process.env[n] || '').trim();
+const env = n => (process.env[n] || '').trim().replace(/^["']|["']$/g, '');
+
+// 포털의 Encoding 키(%2B 등)를 넣어도 동작하도록 원본(Decoding) 키로 되돌린다
+const normKey = k => { try { return /%[0-9A-Fa-f]{2}/.test(k) ? decodeURIComponent(k) : k; } catch { return k; } };
 const KEY_PARAM = env('JEJU_KEY_PARAM') || 'serviceKey';
 const TTL = 60 * 60 * 1000;
 
@@ -44,12 +47,12 @@ function findRows(x) {
 
 async function fetchPage(baseUrl, key, page, perPage) {
   const u = new URL(baseUrl);
-  u.searchParams.set(KEY_PARAM, key);
+  u.searchParams.set(KEY_PARAM, normKey(key));
   u.searchParams.set('page', page);
   u.searchParams.set('perPage', perPage);
   new URLSearchParams(env('JEJU_EXTRA_PARAMS')).forEach((v, k) => u.searchParams.set(k, v));
   const res = await fetch(u);
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} (${u.pathname.split('/')[2]}, 키 ${key.length}자${/%/.test(key) ? ', %포함' : ''}) ${(await res.text()).slice(0, 150)}`);
   const text = await res.text();
   try { return JSON.parse(text); }
   catch { throw new Error('JSON이 아닌 응답입니다: ' + text.slice(0, 120)); }
