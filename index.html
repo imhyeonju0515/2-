@@ -266,11 +266,15 @@ details.more[open]>summary{margin-bottom:4px}
 let DATA = [];
 try {
   const res = await fetch('/api/places');
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || res.statusText);
+  let body = null;
+  try { body = await res.json(); } catch (e) {}
+  if (!res.ok || !Array.isArray(body)) throw new Error((body && body.error) || '서버 응답을 읽지 못했습니다.');
   DATA = body;
 } catch (e) {
-  document.getElementById('count').textContent = '데이터를 불러오지 못했습니다: ' + e.message;
+  document.getElementById('count').textContent = '';
+  document.getElementById('side').insertAdjacentHTML('afterbegin',
+    `<div class="card none" role="alert" style="padding:14px"><b>⚠️ 데이터를 불러오지 못했어요</b><br>${String(e.message).replace(/[&<>"]/g,'')}<br><br>` +
+    `<button class="primary" onclick="location.reload()">다시 시도</button></div>`);
   return;
 }
 

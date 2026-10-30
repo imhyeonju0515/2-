@@ -32,6 +32,8 @@ PC에서는 왼쪽 패널과 오른쪽 지도가 나란히 보이고, 모바일�
 
 환경변수 (로컬은 `.env.local`, Vercel은 Environment Variables에 등록 — `.env.local`은 git에 올리지 않음)
 
+`.env.example`(값이 빈 양식)을 복사해 `.env.local`을 만들고 값을 채웁니다.
+
 | 이름 | 설명 |
 |------|------|
 | `JEJU_CULTURE_INFO_KEY` | 일반정보 API 서비스키 |

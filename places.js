@@ -52,7 +52,7 @@ async function fetchPage(baseUrl, key, page, perPage) {
   u.searchParams.set('perPage', perPage);
   new URLSearchParams(env('JEJU_EXTRA_PARAMS')).forEach((v, k) => u.searchParams.set(k, v));
   const res = await fetch(u);
-  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} (${u.pathname.split('/')[2]}, 키 ${key.length}자${/%/.test(key) ? ', %포함' : ''}) ${(await res.text()).slice(0, 150)}`);
+  if (!res.ok) throw new Error(`API ${res.status} ${res.statusText} (${u.pathname.split('/')[2]})`);
   const text = await res.text();
   try { return JSON.parse(text); }
   catch { throw new Error('JSON이 아닌 응답입니다: ' + text.slice(0, 120)); }

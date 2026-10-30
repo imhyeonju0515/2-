@@ -8,6 +8,6 @@ module.exports = async (req, res) => {
     res.status(200).json(data);
   } catch (e) {
     console.error(e.message);
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ error: '데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' });
   }
 };

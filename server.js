@@ -25,7 +25,7 @@ http.createServer(async (req, res) => {
     } catch (e) {
       console.error(e.message);
       res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: e.message }));
+      res.end(JSON.stringify({ error: '데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.' }));
     }
     return;
   }
