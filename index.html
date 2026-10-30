@@ -169,6 +169,33 @@ button.wide{width:100%;padding:9px;font-size:15px}
 .basepin{width:36px;height:36px;border-radius:50%;background:#fff;border:3px solid #7c5cff;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,.4)}
 .course li .no.st{background:none;box-shadow:none;font-size:16px;color:inherit}
 .dist{color:var(--accent2)}
+
+/* 모바일: 목록/지도 전환 탭 */
+#mtabs{display:none}
+@media screen and (max-width:860px){
+  body{padding-bottom:64px}
+  #toast{bottom:84px;z-index:2100;border-radius:16px;text-align:center}
+  #modal{z-index:2200}
+  #mtabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:2000;gap:8px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--solid);border-top:1px solid var(--line);box-shadow:0 -4px 16px rgba(0,0,0,.12)}
+  #mtabs button{flex:1;font:inherit;font-weight:700;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--solid);color:var(--ink)}
+  #mtabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  #mapbox{position:relative;top:auto;z-index:auto;height:auto}
+  body:not(.mapview) #mapbox{display:none}
+  body.mapview header,body.mapview .side{display:none}
+  body.mapview #mapbox{position:fixed;inset:0 0 64px 0;z-index:5;min-height:0}
+}
+
+/* 코스 결과 강조 */
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--accent)}40%{box-shadow:0 0 0 6px var(--accent)}100%{box-shadow:var(--shadow-sm)}}
+.card.flash{animation:flash 1.4s ease-out 1}
+
+/* 상세 팝업 읽기 쉽게 */
+.lead{font-size:14px;line-height:1.7;margin:6px 0 10px}
+details.more{margin:8px 0;border:1px solid var(--line);border-radius:12px;padding:6px 12px;background:var(--solid)}
+details.more>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--accent);padding:4px 0}
+details.more[open]>summary{margin-bottom:4px}
+.keyfacts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 6px;font-size:13px}
+.keyfacts dt{color:var(--muted)}.keyfacts dd{margin:0}
 </style>
 </head>
 <body>
@@ -232,6 +259,7 @@ button.wide{width:100%;padding:9px;font-size:15px}
   <div class="body" id="m-body"></div>
 </div></div>
 
+<nav id="mtabs"><button data-view="list" class="on">📋 목록·코스</button><button data-view="map">🗺 지도</button></nav>
 <div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>(async()=>{
@@ -283,6 +311,18 @@ try { stayPos = JSON.parse(localStorage.getItem('jeju-stay-v1')||'null'); } catc
   }
 })();
 
+const isMobile = () => window.matchMedia('(max-width:860px)').matches;
+function setView(v, keepView){
+  const on = v==='map' && isMobile();
+  document.body.classList.toggle('mapview', on);
+  document.querySelectorAll('#mtabs button').forEach(b=>b.classList.toggle('on', b.dataset.view===(on?'map':'list')));
+  if(on && hasMap){
+    map.invalidateSize();                    // 숨겨져 있던 지도의 크기를 바로 다시 잰다
+    if(!keepView) favs.length ? fitRoute() : renderAll(true);
+  }
+}
+document.querySelectorAll('#mtabs button').forEach(b=>b.onclick=()=>{ setView(b.dataset.view); if(b.dataset.view==='list') window.scrollTo({top:0}); });
+window.addEventListener('resize',()=>{ if(!isMobile()) setView('list'); });
 const legMin = d => Math.round(d*1.4/MODES[cs.mode].v*60);   // straight-line x1.4 ≈ road distance
 const fmtMin = m => (m>=60 ? Math.floor(m/60)+'시간 ' : '') + (m%60) + '분';
 function toast(msg){
@@ -367,8 +407,14 @@ function getMe(ok){
     {timeout:8000});
 }
 function afterCourseChange(fit){
-  saveFavs(); state.popup=null; renderAll(false); if(fit) fitRoute();
-  $('side').scrollTo({top:0,behavior:'smooth'});
+  saveFavs(); state.popup=null; renderAll(false); if(fit && !isMobile()) fitRoute();
+  showCourseCard();
+}
+// 결과 코스 카드로 스크롤하고 잠깐 강조 (모바일에서 지도 탭이면 목록 탭으로 복귀)
+function showCourseCard(){
+  setView('list');
+  const el=$('course'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  el.scrollIntoView({block:'start'});
 }
 function makeCourse(){
   let base=null;
@@ -395,7 +441,7 @@ function makeCourse(){
   cs.name = tag+(mk.city||'제주')+' '+(mk.d1||'역사문화')+' 답사';
   saveCs();
   afterCourseChange(true);
-  toast(`${favs.length}곳 코스를 만들었어요! 마음에 안 들면 한 번 더 눌러보세요`);
+  toast(`${favs.length}곳 코스를 만들었어요! 마음에 안 들면 한 번 더 눌러보세요`+(isMobile()?' · 아래 🗺 지도 탭에서 동선 확인':''));
 }
 function optimizeCourse(){
   const min = cs.base ? 2 : 3;
@@ -446,9 +492,12 @@ function pinIcon(r, no){
     html:`<div class="pin${fav?' fav':''}${act&&!fav?' act':''}"><b>${fav?no:''}</b></div>`,
     iconSize:fav?[30,30]:[26,26], iconAnchor:fav?[15,32]:[13,28], popupAnchor:[0,-28]});
 }
+function cleanText(t){ return (t||'').replace(/\(중략\)/g,' … ').replace(/\s+/g,' ').trim(); }
 function snippet(r,n){
-  const t=(r.content||r.abstract||r.toc||'').replace(/\s+/g,' ');
-  return t.length>n ? t.slice(0,n)+'…' : t;
+  const t=cleanText(r.content||r.abstract||r.toc);
+  if(t.length<=n) return t;
+  const cut=t.slice(0,n), i=Math.max(cut.lastIndexOf('. '),cut.lastIndexOf('다.'));
+  return (i>n*0.5 ? cut.slice(0,i+1) : cut.replace(/\s+\S*$/,''))+' …';
 }
 function popupHtml(r){
   const isFav = favs.includes(r.id);
@@ -503,13 +552,13 @@ function renderMarkers(rows, fit){
 function focusPlace(id){
   state.act = id; const r = BY_ID[id];
   if(!hasMap){ showDetail(id); return; }
+  setView('map', true);                      // 모바일이면 지도 탭으로 전환
   if(!markers[id]){ // hidden by filter: reset filters so the pin exists
     resetFilters(false); renderAll(true);
   }
   map.flyTo([r.lat,r.lon],Math.max(map.getZoom(),14),{duration:.6});
   renderAll(false);
   setTimeout(()=>markers[id] && markers[id].openPopup(),650);
-  if(window.matchMedia('(max-width:860px)').matches) $('mapbox').scrollIntoView({behavior:'smooth'});
 }
 
 /* ---------- filters ---------- */
@@ -624,16 +673,21 @@ function showDetail(id){
   $('m-title').textContent = r.place + (r.title&&r.title!==r.place?' · '+r.title:'');
   $('m-sub').textContent = [r.cat,r.d1,r.d2].filter(Boolean).join(' › ');
   const row=(t,v)=>v?`<dt>${t}</dt><dd>${esc(v)}</dd>`:'';
-  const long=(t,v)=>v?`<div class="sec">${t}</div><div class="longtext">${esc(v)}</div>`:'';
+  const long=(t,v)=>v?`<details class="more"><summary>${t}</summary><div class="longtext">${esc(cleanText(v))}</div></details>`:'';
   const links=[`<button class="heart${isFav?' on':''}" data-act="fav" data-id="${id}">${isFav?'♥ 찜 해제':'♡ 찜하기'}</button>`];
   if(hasMap) links.push(`<button data-act="focus" data-id="${id}">📍 지도에서 보기</button>`);
   if(r.lat&&r.lon) links.push(`<a class="btn" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lon}#map=16/${r.lat}/${r.lon}">OpenStreetMap</a>`);
   if(r.url) links.push(`<a class="btn" target="_blank" rel="noopener" href="${esc(r.url)}">제주 디지털콘텐츠 원문</a>`);
-  $('m-body').innerHTML='<dl>'+row('데이터 번호',r.id)+row('주소',r.addr)+row('우편번호',r.zip)+
-    row('좌표',r.lat&&r.lon?`${r.lat}, ${r.lon} (${r.crs||'WGS 84'})`:'')+row('부제목',r.sub)+row('저작자',r.author)+
-    row('주제어',r.subject)+row('발행자',r.publisher)+row('발행일',r.date)+row('자료유형',r.type)+row('자료형태',r.form)+
-    row('언어',r.lang)+row('범위',r.scope)+row('출처',r.source)+row('기여자',r.contrib)+row('기준일자',r.base)+'</dl>'+
-    long('내용',r.content)+long('초록',r.abstract)+long('목차',r.toc)+long('참고문헌',r.ref)+
+  const lead = snippet(r,220);
+  $('m-body').innerHTML =
+    (lead?`<div class="sec">한눈에 보기</div><p class="lead">${esc(lead)}</p>`:'')+
+    `<dl class="keyfacts">${row('주소',r.addr)}${row('주제어',r.subject)}${row('저작자',r.author)}${row('발행일',r.date)}</dl>`+
+    long('📖 전체 내용 읽기',r.content)+long('초록',r.abstract)+long('목차',r.toc)+long('참고문헌',r.ref)+
+    `<details class="more"><summary>자료 정보 (번호·좌표·형태 등)</summary><dl class="keyfacts">`+
+      row('데이터 번호',r.id)+row('우편번호',r.zip)+row('좌표',r.lat&&r.lon?`${r.lat}, ${r.lon} (${r.crs||'WGS 84'})`:'')+
+      row('부제목',r.sub)+row('발행자',r.publisher)+row('자료유형',r.type)+row('자료형태',r.form)+row('언어',r.lang)+
+      row('범위',r.scope)+row('출처',r.source)+row('기여자',r.contrib)+row('기준일자',r.base)+
+    `</dl></details>`+
     `<div class="actions">${links.join('')}</div>`;
   $('modal').classList.add('open');
 }
